@@ -1,10 +1,21 @@
 # FDD — Webhooks de Notificação de Mudança de Status de Pedidos
 
+## Metadados
+
+| Campo | Valor |
+| --- | --- |
+| **Autor** | Larissa (Tech Lead) |
+| **Status** | Pronto para implementação |
+| **Data** | 2026-10-06 |
+| **Revisores** | Marcos (Product Manager), Bruno (Eng. Pleno, Pedidos), Diego (Eng. Sênior, Plataforma), Sofia (Eng. de Segurança) |
+| **Origem** | Reunião técnica de kickoff (`TRANSCRICAO.md`) |
+| **Documentos relacionados** | [RFC](./RFC.md), [ADRs](./adrs/), [PRD](./PRD.md), [Tracker](./TRACKER.md) |
+
 ## 1. Contexto e motivação técnica
 
-Clientes B2B hoje descobrem mudanças de status fazendo polling em `GET /orders` (`[09:00] Marcos`). Vamos passar a notificá-los por webhooks de saída, com latência abaixo de 10 segundos (`[09:02] Marcos`).
+Clientes B2B hoje descobrem mudanças de status fazendo polling em `GET /orders`. Vamos passar a notificá-los por webhooks de saída, com latência abaixo de 10 segundos (`[09:02] Marcos`).
 
-A mudança de status acontece em `OrderService.changeStatus` (`src/modules/orders/order.service.ts`), dentro de um `prisma.$transaction` que atualiza `orders`, insere em `order_status_history` e ajusta estoque. A motivação técnica é emitir o evento **sem** colocar uma chamada HTTP a terceiros dentro dessa transação e **sem** permitir que o status mude sem que o evento seja registrado (`[09:04] Bruno`, `[09:40] Bruno`). A abordagem e suas alternativas estão no [RFC](./RFC.md); este documento descreve como construir.
+A mudança de status acontece em `OrderService.changeStatus` (`src/modules/orders/order.service.ts`), dentro de um `prisma.$transaction` que atualiza `orders`, insere em `order_status_history` e ajusta estoque. A motivação técnica é emitir o evento **sem** colocar uma chamada HTTP a terceiros dentro dessa transação e **sem** permitir que o status mude sem que o evento seja registrado (`[09:04] Bruno`). A abordagem e suas alternativas estão no [RFC](./RFC.md); este documento descreve como construir.
 
 ## 2. Objetivos técnicos
 
@@ -20,12 +31,12 @@ A mudança de status acontece em `OrderService.changeStatus` (`src/modules/order
 
 **No escopo**
 
-- CRUD de configuração de webhooks por cliente, com filtro de status (`[09:31] Marcos`, `[09:33] Bruno`).
-- Rotação de secret via API (`[09:21] Sofia`).
-- Histórico de entregas por webhook (`[09:34] Marcos`).
+- CRUD de configuração de webhooks por cliente, com filtro de status.
+- Rotação de secret via API.
+- Histórico de entregas por webhook.
 - Publicação transacional na outbox a partir de `changeStatus`.
 - Worker de entrega com retry, backoff e DLQ.
-- Replay administrativo de DLQ, restrito a `ADMIN` e auditado (`[09:36] Sofia`).
+- Replay administrativo de DLQ, restrito a `ADMIN` e auditado.
 
 **Fora do escopo**
 
@@ -40,30 +51,30 @@ A mudança de status acontece em `OrderService.changeStatus` (`src/modules/order
 
 ## 4. Modelo de dados
 
-Quatro tabelas novas em `prisma/schema.prisma`, todas com chave primária UUID em `@db.Char(36)`, como o restante do schema (`[09:51] Larissa`).
+Quatro tabelas novas em `prisma/schema.prisma`, todas com chave primária UUID em `@db.Char(36)`, como o restante do schema.
 
 | Tabela (modelo Prisma) | Papel | Campos principais |
 | --- | --- | --- |
-| `webhook_endpoints` (`WebhookEndpoint`) | Configuração por cliente (`[09:21] Bruno`) | `id`, `customerId` (FK `customers`), `url`, `secret`, `previousSecret?`, `previousSecretExpiresAt?`, `events` (Json: lista de `OrderStatus`), `active`, `createdAt`, `updatedAt` |
+| `webhook_endpoints` (`WebhookEndpoint`) | Configuração por cliente | `id`, `customerId` (FK `customers`), `url`, `secret`, `previousSecret?`, `previousSecretExpiresAt?`, `events` (Json: lista de `OrderStatus`), `active`, `createdAt`, `updatedAt` |
 | `webhook_outbox` (`WebhookOutbox`) | Fila de eventos a entregar | `id` (é o `event_id`), `webhookId` (FK, cascade), `orderId`, `eventType`, `payload` (Json), `status`, `attempts`, `nextAttemptAt`, `lockedAt?`, `lastError?`, `createdAt`, `updatedAt`, `deliveredAt?` |
 | `webhook_deliveries` (`WebhookDelivery`) | Uma linha por tentativa HTTP | `id`, `eventId` (FK outbox, cascade), `webhookId`, `attempt`, `success`, `statusCode?`, `responseBody?`, `durationMs`, `errorCode?`, `createdAt` |
-| `webhook_dead_letter` (`WebhookDeadLetter`) | Falhas permanentes (`[09:18] Diego`) | `id`, `eventId`, `webhookId`, `orderId`, `payload` (Json), `failureReason`, `attempts`, `failedAt`, `replayedAt?`, `replayedById?` |
+| `webhook_dead_letter` (`WebhookDeadLetter`) | Falhas permanentes | `id`, `eventId`, `webhookId`, `orderId`, `payload` (Json), `failureReason`, `attempts`, `failedAt`, `replayedAt?`, `replayedById?` |
 
 Enum novo: `WebhookOutboxStatus { PENDING, PROCESSING, FAILED, DELIVERED }`, correspondendo a pendente, processando, falhou e entregue (`[09:08] Diego`).
 
 Índices:
 
-- `webhook_outbox`: `(status, nextAttemptAt)` e `(createdAt)` (`[09:08] Diego`); `(webhookId, orderId, createdAt)` para a regra de ordenação da seção 5.2 **[FDD]**.
+- `webhook_outbox`: `(status, nextAttemptAt)` e `(createdAt)`; `(webhookId, orderId, createdAt)` para a regra de ordenação da seção 5.2.
 - `webhook_endpoints`: `(customerId, active)`.
 - `webhook_deliveries`: `(webhookId, createdAt)`.
 - `webhook_dead_letter`: `(eventId)`.
 
-Definições de modelagem **[FDD]**:
+Definições de modelagem:
 
 - **Uma linha de outbox por endpoint assinante.** Se o cliente tem dois webhooks que assinam o status, a mesma transição gera duas linhas, cada uma com seu `event_id` e seu próprio estado de retry.
 - **`webhook_outbox.orderId` não é chave estrangeira.** `OrderService.delete` permite apagar pedidos `PENDING` ou `CANCELLED`; como o payload é snapshot ([ADR-008](./adrs/ADR-008-snapshot-do-payload-na-insercao-do-outbox.md)), o evento deve sobreviver à remoção do pedido.
 - **O `id` da outbox é gerado na aplicação** (pacote `uuid`, já no projeto), porque precisa constar dentro do payload renderizado na inserção.
-- **A secret é armazenada em texto recuperável**, pois o HMAC exige o valor original. Proteção em repouso fica para a revisão de segurança (`[09:46] Sofia`).
+- **A secret é armazenada em texto recuperável**, pois o HMAC exige o valor original. Proteção em repouso fica para a revisão de segurança (seção 11).
 
 ## 5. Fluxos detalhados
 
@@ -87,23 +98,23 @@ sequenceDiagram
 ```
 
 1. Busca os endpoints com `customerId = order.customerId` e `active = true`.
-2. Mantém apenas os que têm `toStatus` em `events`. Se nenhum sobrar, retorna sem inserir (`[09:34] Bruno`).
+2. Mantém apenas os que têm `toStatus` em `events`. Se nenhum sobrar, retorna sem inserir.
 3. Para cada endpoint, gera o `event_id` e renderiza o payload (seção 6.9) com os dados do pedido naquele instante.
-4. Se o payload serializado passar de 64KB, lança `WEBHOOK_PAYLOAD_TOO_LARGE` (`[09:23] Sofia`, `[09:24] Diego`).
+4. Se o payload serializado passar de 64KB, lança `WEBHOOK_PAYLOAD_TOO_LARGE` (`[09:23] Sofia`).
 5. Insere as linhas com `status = PENDING`, `attempts = 0`, `nextAttemptAt = now()`.
 
-Qualquer erro em `publishWebhookEvent` propaga e desfaz a transação inteira: o status não muda (`[09:40] Bruno`, `[09:41] Diego`).
+Qualquer erro em `publishWebhookEvent` propaga e desfaz a transação inteira: o status não muda (`[09:40] Bruno`).
 
-A criação do pedido (`OrderService.create`, que grava o histórico `null → PENDING`) **não** publica evento **[FDD]**: a reunião tratou apenas de mudança de status.
+A criação do pedido (`OrderService.create`, que grava o histórico `null → PENDING`) **não** publica evento: a reunião tratou apenas de mudança de status.
 
 ### 5.2 Processamento pelo worker
 
-Entry-point `src/worker.ts`; lógica em `src/modules/webhooks/webhook.processor.ts`. O loop usa `setTimeout` reagendado ao fim de cada ciclo, para que ciclos nunca se sobreponham **[FDD]**.
+Entry-point `src/worker.ts`; lógica em `src/modules/webhooks/webhook.processor.ts`. O loop usa `setTimeout` reagendado ao fim de cada ciclo, para que ciclos nunca se sobreponham.
 
 A cada 2 segundos:
 
-1. **Recuperação [FDD].** Linhas em `PROCESSING` com `lockedAt` há mais de 60 segundos voltam para `PENDING`, sem incrementar `attempts`. Cobre queda do worker no meio de um envio; a possível reentrega é coberta pelo at-least-once.
-2. **Seleção.** Até 20 linhas **[FDD]** com `status = PENDING` e `nextAttemptAt <= now()`, ordenadas por `createdAt` ascendente, excluindo as que têm um evento mais antigo do mesmo `(webhookId, orderId)` ainda em `PENDING` ou `PROCESSING`:
+1. **Recuperação.** Linhas em `PROCESSING` com `lockedAt` há mais de 60 segundos voltam para `PENDING`, sem incrementar `attempts`. Cobre queda do worker no meio de um envio; a possível reentrega é coberta pelo at-least-once.
+2. **Seleção.** Até 20 linhas com `status = PENDING` e `nextAttemptAt <= now()`, ordenadas por `createdAt` ascendente, excluindo as que têm um evento mais antigo do mesmo `(webhookId, orderId)` ainda em `PENDING` ou `PROCESSING`:
 
    ```sql
    SELECT o.id FROM webhook_outbox o
@@ -116,12 +127,12 @@ A cada 2 segundos:
    ORDER BY o.createdAt ASC LIMIT 20;
    ```
 
-   Essa exclusão **[FDD]** é o que mantém a ordem por pedido ([ADR-007](./adrs/ADR-007-ordenacao-por-order-id-sem-garantia-global.md)) quando há retry: sem ela, `SHIPPED` seria entregue enquanto `PROCESSING` aguarda nova tentativa.
+   Essa exclusão é o que mantém a ordem por pedido ([ADR-007](./adrs/ADR-007-ordenacao-por-order-id-sem-garantia-global.md)) quando há retry: sem ela, `SHIPPED` seria entregue enquanto `PROCESSING` aguarda nova tentativa.
 3. **Reserva.** `updateMany` das linhas selecionadas para `PROCESSING`, com `lockedAt = now()`.
-4. **Envio.** As linhas do lote são enviadas em paralelo **[FDD]**; a regra do passo 2 garante que nunca há dois eventos do mesmo pedido e endpoint no mesmo lote. Para cada uma:
-   - carrega o endpoint; se estiver inativo, vai direto para a DLQ com motivo `WEBHOOK_INACTIVE`, sem chamada HTTP **[FDD]**;
-   - monta headers e assinatura (seção 6.9) e faz `POST` com timeout de 10 segundos (`[09:42] Diego`), sem seguir redirecionamentos **[FDD]**;
-   - grava uma linha em `webhook_deliveries` com resultado, status HTTP, corpo da resposta truncado em 2KB **[FDD]** e duração.
+4. **Envio.** As linhas do lote são enviadas em paralelo; a regra do passo 2 garante que nunca há dois eventos do mesmo pedido e endpoint no mesmo lote. Para cada uma:
+   - carrega o endpoint; se estiver inativo, vai direto para a DLQ com motivo `WEBHOOK_INACTIVE`, sem chamada HTTP;
+   - monta headers e assinatura (seção 6.9) e faz `POST` com timeout de 10 segundos, sem seguir redirecionamentos;
+   - grava uma linha em `webhook_deliveries` com resultado, status HTTP, corpo da resposta truncado em 2KB e duração.
 5. **Resultado.** Resposta `2xx`: `status = DELIVERED`, `deliveredAt = now()`. Qualquer outra resposta, timeout ou erro de rede: fluxo de retry.
 
 O worker nunca relê o pedido: envia o payload armazenado ([ADR-008](./adrs/ADR-008-snapshot-do-payload-na-insercao-do-outbox.md)).
@@ -139,9 +150,9 @@ Na falha, incrementa `attempts`, grava `lastError` e devolve a linha para `PENDI
 | 5 | 12 horas |
 | 6 | não há: vai para a DLQ |
 
-Ou seja, um envio inicial e até cinco retentativas, somando 14h36 entre a primeira falha e a última tentativa. Essa leitura segue a fala "quase 15 horas entre primeira falha e última tentativa" (`[09:17] Diego`); a reunião também fala em "5 tentativas", o que admite a leitura de cinco envios no total. **A confirmar** (seção 14).
+Ou seja, um envio inicial e até cinco retentativas, somando 14h36 entre a primeira falha e a última tentativa. Essa leitura segue a fala "quase 15 horas entre primeira falha e última tentativa"; a reunião também fala em "5 tentativas", o que admite a leitura de cinco envios no total. **A confirmar** (seção 14).
 
-Todas as falhas são tratadas igual, inclusive respostas `4xx` **[FDD]**.
+Todas as falhas são tratadas igual, inclusive respostas `4xx`.
 
 ### 5.4 DLQ e replay
 
@@ -155,18 +166,18 @@ Replay (`POST /admin/webhooks/dead-letter/:id/replay`, `[09:18] Diego`), em uma 
 1. carrega o registro da DLQ; inexistente → `WEBHOOK_DEAD_LETTER_NOT_FOUND`;
 2. já reprocessado (`replayedAt` preenchido) → `WEBHOOK_DEAD_LETTER_ALREADY_REPLAYED`;
 3. endpoint inativo → `WEBHOOK_INACTIVE`;
-4. a linha original da outbox volta a `PENDING`, com `attempts = 0` e `nextAttemptAt = now()`, **mantendo o mesmo `event_id`** **[FDD]**, para que a deduplicação do cliente continue funcionando;
+4. a linha original da outbox volta a `PENDING`, com `attempts = 0` e `nextAttemptAt = now()`, **mantendo o mesmo `event_id`**, para que a deduplicação do cliente continue funcionando;
 5. grava `replayedAt` e `replayedById` e emite o log de auditoria `webhook_dead_letter_replayed` (`[09:36] Sofia`).
 
 Um evento reprocessado é entregue fora de ordem em relação aos eventos posteriores do mesmo pedido que já foram entregues. O cliente deve usar o campo `timestamp` do payload para ordenar.
 
 ## 6. Contratos públicos
 
-Base: `/api/v1`. Todos os endpoints exigem `Authorization: Bearer <JWT>` (middleware `authenticate`). As respostas da API usam camelCase, como os demais módulos; o payload enviado ao cliente usa snake_case, como definido em `[09:43] Diego`. Erros seguem o formato do `errorMiddleware`: `{ "error": { "code", "message", "details?" } }`.
+Base: `/api/v1`. Todos os endpoints exigem `Authorization: Bearer <JWT>` (middleware `authenticate`). As respostas da API usam camelCase, como os demais módulos; o payload enviado ao cliente usa snake_case (seção 6.9). Erros seguem o formato do `errorMiddleware`: `{ "error": { "code", "message", "details?" } }`.
 
-O `customerId` é informado no body (criação) e na query (listagem) **[FDD]**, repetindo o que `createOrderSchema` e `listOrdersQuerySchema` já fazem em `src/modules/orders/order.schemas.ts`. A reunião definiu apenas que ele não vem do JWT (`[09:32] Larissa`).
+O `customerId` é informado no body (criação) e na query (listagem), repetindo o que `createOrderSchema` e `listOrdersQuerySchema` já fazem em `src/modules/orders/order.schemas.ts`. A reunião definiu apenas que ele não vem do JWT (`[09:32] Larissa`).
 
-Qualquer role autenticada pode gerenciar webhooks de qualquer cliente nesta fase (`[09:36] Marcos`, `[09:37] Sofia`).
+Qualquer role autenticada pode gerenciar webhooks de qualquer cliente nesta fase (`[09:36] Marcos`).
 
 ### 6.1 `POST /webhooks` — cadastrar
 
@@ -193,7 +204,7 @@ Qualquer role autenticada pode gerenciar webhooks de qualquer cliente nesta fase
 }
 ```
 
-- A secret é gerada pela plataforma e devolvida na criação (`[09:31] Marcos`). Ela só aparece nesta resposta e na de rotação; nenhum `GET` a retorna **[FDD]**.
+- A secret é gerada pela plataforma e devolvida na criação (`[09:31] Marcos`). Ela só aparece nesta resposta e na de rotação; nenhum `GET` a retorna.
 - `events`: lista não vazia de valores de `OrderStatus`.
 - Erros: `400 VALIDATION_ERROR`, `400 WEBHOOK_INVALID_URL`, `401 UNAUTHORIZED`, `404 WEBHOOK_CUSTOMER_NOT_FOUND`.
 
@@ -234,7 +245,7 @@ A mudança vale para eventos gerados a partir de então. Eventos já na outbox d
 
 ### 6.4 `DELETE /webhooks/:id` — remover
 
-`204 No Content`. Remove o cadastro e, em cascata, seus eventos, entregas e registros de DLQ **[FDD]**. Erros: `401 UNAUTHORIZED`, `404 WEBHOOK_NOT_FOUND`.
+`204 No Content`. Remove o cadastro e, em cascata, seus eventos, entregas e registros de DLQ. Erros: `401 UNAUTHORIZED`, `404 WEBHOOK_NOT_FOUND`.
 
 ### 6.5 `POST /webhooks/:id/rotate-secret` — rotacionar secret
 
@@ -248,7 +259,7 @@ Sem body. `200 OK`:
 }
 ```
 
-A secret anterior segue válida por 24 horas (`[09:21] Sofia`): nesse período cada requisição leva as duas assinaturas (seção 6.9). Uma nova rotação dentro da janela descarta imediatamente a secret mais antiga **[FDD]**. Erros: `401 UNAUTHORIZED`, `404 WEBHOOK_NOT_FOUND`.
+A secret anterior segue válida por 24 horas (`[09:21] Sofia`): nesse período cada requisição leva as duas assinaturas (seção 6.9). Uma nova rotação dentro da janela descarta imediatamente a secret mais antiga. Erros: `401 UNAUTHORIZED`, `404 WEBHOOK_NOT_FOUND`.
 
 ### 6.6 `GET /webhooks/:id/deliveries?page=&pageSize=` — histórico de entregas
 
@@ -292,7 +303,7 @@ Exige role `ADMIN` via `requireRole('ADMIN')` (`[09:36] Larissa`). Sem body. `20
 
 Erros: `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 WEBHOOK_DEAD_LETTER_NOT_FOUND`, `409 WEBHOOK_DEAD_LETTER_ALREADY_REPLAYED`, `409 WEBHOOK_INACTIVE`.
 
-### 6.8 `GET /admin/webhooks/dead-letter?webhookId=&page=&pageSize=` — listar DLQ **[FDD]**
+### 6.8 `GET /admin/webhooks/dead-letter?webhookId=&page=&pageSize=` — listar DLQ
 
 Não foi discutido na reunião; sem ele o administrador não tem como descobrir o `id` a reprocessar. Exige `ADMIN`. `200 OK` paginado, com `id`, `eventId`, `webhookId`, `orderId`, `failureReason`, `attempts`, `failedAt`, `replayedAt`.
 
@@ -305,10 +316,10 @@ Não foi discutido na reunião; sem ele o administrador não tem como descobrir 
 | `Content-Type` | `application/json` | `[09:44] Diego` |
 | `X-Event-Id` | UUID do evento; igual em todas as tentativas | `[09:25] Diego` |
 | `X-Webhook-Id` | `id` do endpoint cadastrado | `[09:44] Sofia` |
-| `X-Timestamp` | instante do envio, ISO 8601 **[FDD]** | `[09:44] Diego` |
-| `X-Signature` | `sha256=<hex>` do HMAC-SHA256 do corpo com a secret do endpoint **[FDD: formato]** | `[09:20] Sofia` |
+| `X-Timestamp` | instante do envio, ISO 8601 | `[09:44] Diego` |
+| `X-Signature` | `sha256=<hex>` do HMAC-SHA256 do corpo com a secret do endpoint | `[09:20] Sofia` |
 
-Durante a carência de rotação, `X-Signature` traz duas assinaturas separadas por vírgula, a da secret nova e a da anterior: `sha256=<nova>,sha256=<anterior>` **[FDD]**. O cliente aceita a requisição se qualquer uma conferir com a secret que ele tem.
+Durante a carência de rotação, `X-Signature` traz duas assinaturas separadas por vírgula, a da secret nova e a da anterior: `sha256=<nova>,sha256=<anterior>`. O cliente aceita a requisição se qualquer uma conferir com a secret que ele tem.
 
 A assinatura cobre apenas os bytes do corpo (`[09:22] Sofia`). O `X-Timestamp` não é assinado; o instante da transição está no campo `timestamp` do corpo, que é.
 
@@ -332,7 +343,7 @@ Semântica para o cliente: responder `2xx` em até 10 segundos confirma o recebi
 
 ## 7. Matriz de erros
 
-Novas classes em `src/shared/errors/http-errors.ts`, exportadas por `src/shared/errors/index.ts`, no mesmo molde de `InsufficientStockError` e `InvalidStatusTransitionError` (`[09:28] Bruno`). O `errorMiddleware` as trata sem alteração (`[09:29] Bruno`).
+Novas classes em `src/shared/errors/http-errors.ts`, exportadas por `src/shared/errors/index.ts`, no mesmo molde de `InsufficientStockError` e `InvalidStatusTransitionError` (`[09:28] Bruno`). O `errorMiddleware` as trata sem alteração.
 
 **Erros da API**
 
@@ -364,7 +375,7 @@ Duas observações de implementação decorrentes do código atual:
 | `WEBHOOK_SECRET_REQUIRED` | Endpoint sem secret no momento do envio (invariante violada) | DLQ direto |
 | `WEBHOOK_MAX_ATTEMPTS_EXCEEDED` | Tentativas esgotadas | DLQ |
 
-`WEBHOOK_SECRET_REQUIRED` foi citado na reunião como exemplo de código (`[09:28] Bruno`), sem semântica definida; a atribuição acima é **[FDD]**.
+`WEBHOOK_SECRET_REQUIRED` foi citado na reunião como exemplo de código, sem semântica definida; a atribuição acima é definida neste documento.
 
 ## 8. Estratégias de resiliência
 
@@ -375,13 +386,13 @@ Duas observações de implementação decorrentes do código atual:
 | **Fallback** | DLQ com replay manual por `ADMIN`. Não há fallback automático: email está fora do escopo. Para o cliente, `GET /orders` continua disponível |
 | **Atomicidade** | Evento e mudança de status na mesma transação; falha em um desfaz o outro |
 | **Isolamento** | Worker em processo separado: queda da API não interrompe entregas e vice-versa (`[09:11] Diego`) |
-| **Recuperação de queda** | Linhas presas em `PROCESSING` por mais de 60s voltam a `PENDING` **[FDD]** |
+| **Recuperação de queda** | Linhas presas em `PROCESSING` por mais de 60s voltam a `PENDING` |
 | **Encerramento gracioso** | Em `SIGINT`/`SIGTERM`, o worker para de agendar ciclos, aguarda os envios em curso e desconecta o Prisma, como `src/server.ts` faz |
 | **Erro no ciclo** | Exceção em um ciclo é registrada (`webhook_worker_cycle_failed`) e o loop continua; o processo não cai |
 | **Lentidão de um cliente** | Envio paralelo dentro do lote impede que um endpoint lento atrase os demais além de um ciclo |
 | **Duplicidade** | Reentregas são esperadas; o `X-Event-Id` é estável entre tentativas |
 
-Parâmetros em `src/config/env.ts`, com os valores decididos como padrão **[FDD]**: `WEBHOOK_POLL_INTERVAL_MS=2000`, `WEBHOOK_BATCH_SIZE=20`, `WEBHOOK_HTTP_TIMEOUT_MS=10000`, `WEBHOOK_MAX_PAYLOAD_BYTES=65536`. Servem principalmente para encurtar tempos nos testes.
+Parâmetros em `src/config/env.ts`, com os valores decididos como padrão: `WEBHOOK_POLL_INTERVAL_MS=2000`, `WEBHOOK_BATCH_SIZE=20`, `WEBHOOK_HTTP_TIMEOUT_MS=10000`, `WEBHOOK_MAX_PAYLOAD_BYTES=65536`. Servem principalmente para encurtar tempos nos testes.
 
 ## 9. Observabilidade
 
@@ -396,14 +407,14 @@ O projeto tem Pino e não tem biblioteca de métricas nem de tracing; pela decis
 | `webhook_delivery_failed` | warn | `errorCode`, `statusCode`, `durationMs` |
 | `webhook_retry_scheduled` | info | `nextAttemptAt` |
 | `webhook_moved_to_dead_letter` | error | `failureReason`, `attempts` |
-| `webhook_dead_letter_replayed` | info | `deadLetterId`, `userId` (auditoria, `[09:36] Sofia`) |
+| `webhook_dead_letter_replayed` | info | `deadLetterId`, `userId` (auditoria) |
 | `webhook_secret_rotated` | info | `userId`, `previousSecretExpiresAt` |
 | `webhook_worker_started` / `webhook_worker_stopped` | info | `pollIntervalMs`, `batchSize` |
 | `webhook_worker_cycle_failed` | error | `err` |
 
 Secrets e assinaturas nunca são logadas: acrescentar `*.secret`, `*.previousSecret` e `*.headers["x-signature"]` a `redactPaths` (`[09:22] Diego`).
 
-**Métricas.** Derivadas dos logs acima e de um log `webhook_worker_stats` emitido pelo worker a cada minuto **[FDD]**:
+**Métricas.** Derivadas dos logs acima e de um log `webhook_worker_stats` emitido pelo worker a cada minuto:
 
 | Métrica | Tipo | Fonte |
 | --- | --- | --- |
@@ -468,7 +479,7 @@ export class WebhookNotFoundError extends AppError {
 
 **`src/server.ts` e `src/config/database.ts`.** `src/worker.ts` repete a estrutura de `server.ts`: `bootstrap()`, tratamento de `SIGINT`/`SIGTERM`, `logger.fatal` e `process.exit(1)` em falha de inicialização. Ele importa `prisma` de `src/config/database.ts`; por ser outro processo Node, isso resulta em uma instância própria de `PrismaClient` ligada à mesma `DATABASE_URL` (`[09:30] Bruno`).
 
-**`package.json`.** Novos scripts, espelhando `dev` e `start`: `"dev:worker": "tsx watch --env-file=.env src/worker.ts"` e `"worker": "node --env-file=.env dist/worker.js"` (`[09:11] Larissa`).
+**`package.json`.** Novos scripts, espelhando `dev` e `start`: `"dev:worker": "tsx watch --env-file=.env src/worker.ts"` e `"worker": "node --env-file=.env dist/worker.js"`.
 
 **`tests/setup.ts`.** O `beforeEach` passa a limpar `webhookDelivery`, `webhookDeadLetter`, `webhookOutbox` e `webhookEndpoint`, nessa ordem e antes de `customer.deleteMany()`, por causa da chave estrangeira para `customers`.
 
