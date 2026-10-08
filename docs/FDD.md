@@ -150,7 +150,7 @@ Na falha, incrementa `attempts`, grava `lastError` e devolve a linha para `PENDI
 | 5 | 12 horas |
 | 6 | não há: vai para a DLQ |
 
-Ou seja, um envio inicial e até cinco retentativas, somando 14h36 entre a primeira falha e a última tentativa. Essa leitura segue a fala "quase 15 horas entre primeira falha e última tentativa"; a reunião também fala em "5 tentativas", o que admite a leitura de cinco envios no total. **A confirmar** (seção 14).
+Ou seja, um envio inicial e até cinco retentativas, somando 14h36 entre a primeira falha e a última tentativa. Essa leitura segue a fala "quase 15 horas entre primeira falha e última tentativa"; a reunião também fala em "5 tentativas", o que admite a leitura de cinco envios no total.
 
 Todas as falhas são tratadas igual, inclusive respostas `4xx`.
 
@@ -535,7 +535,7 @@ Os testes usam Vitest e Supertest, como os atuais. O processador recebe a funç�
 | --- | --- | --- | --- |
 | Erro em `publishWebhookEvent` bloqueia mudanças de status | Baixa | Alto | Função pequena e sem I/O externo; critérios 1 a 3; suíte de pedidos como regressão |
 | Worker parado sem ninguém perceber | Média | Alto | Alerta em `webhook_outbox_oldest_pending_age_seconds`; eventos não se perdem |
-| Evento em retry retém os eventos seguintes do mesmo pedido por até ~15h | Média | Médio | Efeito intencional da regra de ordenação; restrito a um pedido e um endpoint; a confirmar (seção 14) |
+| Evento em retry retém os eventos seguintes do mesmo pedido por até ~15h | Média | Médio | Efeito intencional da regra de ordenação; restrito a um pedido e um endpoint |
 | URL cadastrada aponta para endereço interno da nossa rede | Baixa | Alto | Não discutido na reunião; levar à revisão de segurança antes do deploy |
 | Secret exposta em banco ou log | Baixa | Alto | Redação no logger; secret fora dos `GET`; armazenamento em repouso na revisão de segurança |
 | Cliente não deduplica e processa o evento duas vezes | Média | Médio | `X-Event-Id` estável; destaque na documentação do portal |
