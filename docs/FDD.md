@@ -543,4 +543,3 @@ Os testes usam Vitest e Supertest, como os atuais. O processador recebe a funç�
 | Endpoint lento ocupa o lote e atrasa outros clientes | Média | Médio | Envio paralelo; timeout de 10s; `WEBHOOK_BATCH_SIZE` ajustável |
 | Rajada de eventos sobrecarrega o cliente | Baixa | Médio | Sem mitigação nesta fase; observar `webhook_deliveries_total` por webhook |
 
-Probabilidade e impacto são estimativas do autor.
