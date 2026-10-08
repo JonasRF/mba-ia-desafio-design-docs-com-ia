@@ -544,24 +544,3 @@ Os testes usam Vitest e Supertest, como os atuais. O processador recebe a funç�
 | Rajada de eventos sobrecarrega o cliente | Baixa | Médio | Sem mitigação nesta fase; observar `webhook_deliveries_total` por webhook |
 
 Probabilidade e impacto são estimativas do autor.
-
-## 14. Definições deste FDD a confirmar
-
-Pontos que a reunião não fechou e que este documento definiu. Os três primeiros mudam comportamento visível e pedem confirmação explícita.
-
-| # | Definição | Alternativa | Quem confirma |
-| --- | --- | --- | --- |
-| 1 | Envio inicial + 5 retentativas (6 requisições no total) | 5 envios no total, descartando um dos intervalos | Diego |
-| 2 | Evento em retry bloqueia os seguintes do mesmo pedido e endpoint | Entregar fora de ordem e deixar o cliente ordenar por `timestamp` | Diego, Marcos |
-| 3 | Payload acima de 64KB desfaz a mudança de status | Registrar o erro e não emitir o evento, mantendo a mudança | Larissa, Sofia |
-| 4 | `customerId` no body e na query | `customerId` no path | Bruno |
-| 5 | Criação de pedido (`null → PENDING`) não gera evento | Emitir evento também na criação | Marcos |
-| 6 | Uma linha de outbox e um `event_id` por endpoint | Um `event_id` por transição, compartilhado entre endpoints | Diego |
-| 7 | Formato `sha256=<hex>`; duas assinaturas no mesmo header durante a carência; `X-Timestamp` não assinado | Header separado para a assinatura anterior; assinar `timestamp + corpo` | Sofia |
-| 8 | Secret `whsec_` + 24 bytes aleatórios em hex, armazenada em texto recuperável | Cifrar em repouso | Sofia |
-| 9 | Nova rotação dentro da carência descarta a secret mais antiga | Recusar a rotação até o fim da janela | Sofia |
-| 10 | Respostas `4xx` são retentadas como qualquer falha | Enviar `4xx` direto para a DLQ | Diego |
-| 11 | Evento pendente de endpoint desativado vai para a DLQ | Descartar, ou manter pendente até reativar | Diego |
-| 12 | `DELETE` remove o webhook e seu histórico em cascata | Remoção lógica, preservando histórico | Bruno |
-| 13 | `GET /admin/webhooks/dead-letter` | Consultar a DLQ direto no banco | Larissa |
-| 14 | Lote de 20, envio paralelo, recuperação de `PROCESSING` após 60s, resposta truncada em 2KB | Outros valores | Diego |
