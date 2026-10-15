@@ -48,7 +48,7 @@ Invalidar a secret antiga no exato momento em que uma nova é emitida.
 
 - Isola o raio de impacto de um vazamento de secret a um único endpoint/cliente, em vez de comprometer toda a base de clientes.
 - Permite que o próprio cliente rotacione sua secret proativamente (por exemplo, após suspeitar de vazamento em seus próprios logs — cenário já observado, `[09:22] Diego`), sem depender de intervenção da equipe da plataforma.
-- HMAC-SHA256 é um padrão amplamente adotado no mercado (citado por Sofia como equivalente ao usado por Stripe e GitHub em `[09:25]`), reduzindo a barreira de integração para os clientes.
+- HMAC-SHA256 é o padrão de mercado, com biblioteca disponível para "todo cliente sério" (`[09:20] Sofia`), reduzindo a barreira de integração para os clientes.
 
 ### Negativas
 

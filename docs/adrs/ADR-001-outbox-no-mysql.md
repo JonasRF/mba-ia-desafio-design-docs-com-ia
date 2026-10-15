@@ -28,7 +28,7 @@ Em `[09:03] Larissa` foi levantada a pergunta central: disparar o webhook de for
 
 Adotar o padrão **Transactional Outbox** usando uma tabela `webhook_outbox` no MySQL já utilizado pela aplicação (`prisma/schema.prisma`, datasource `mysql`). A inserção na outbox ocorre dentro da mesma transação Prisma que hoje executa a mudança de status em `OrderService.changeStatus`, via uma função `publishWebhookEvent(tx, order, fromStatus, toStatus)` que recebe o cliente de transação (`tx: Prisma.TransactionClient`) já em uso (`[09:41] Bruno`, `[09:41] Diego`).
 
-A tabela deve ter índice em campo de status do evento (pendente, processando, falhou, entregue) e em `created_at`, para permitir leitura eficiente dos pendentes mais antigos pelo worker (`[09:07] Diego`).
+A tabela deve ter índice em campo de status do evento (pendente, processando, falhou, entregue) e em `created_at`, para permitir leitura eficiente dos pendentes mais antigos pelo worker (`[09:08] Diego`).
 
 ## Alternativas Consideradas
 
