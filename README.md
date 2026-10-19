@@ -142,7 +142,7 @@ têm Fonte = CODIGO com caminho de arquivo real.
 
 ## Iterações e ajustes
 
-Foram **5 iterações principais** até o resultado final, uma por documento, e três delas exigiram correções depois da primeira versão.
+Foram **6 iterações principais** até o resultado final: uma por documento, três delas com correções depois da primeira versão, e uma verificação final do pacote completo.
 
 1. **ADRs.** A primeira versão cobriu as 6 decisões obrigatórias e mais duas (ordenação por `order_id` e snapshot do payload), totalizando 8 ADRs. Os erros só apareceram na iteração 5: a verificação cruzada do tracker mostrou que a IA tinha atribuído falas a minutos ou pessoas errados. Os erros corrigidos:
    - **ADR-001:** o índice da outbox estava em `[09:07] Diego`; a fala é de `[09:08]`.
@@ -163,6 +163,10 @@ Foram **5 iterações principais** até o resultado final, uma por documento, e 
    - **Leitura:** ao revisar, achei confusa a tabela única com 276 linhas e pedi para dividi-la em uma tabela por documento (PRD, RFC, FDD e uma por ADR).
 
    As metas foram conferidas por script: 85,5% das linhas com fonte na transcrição, 40 linhas com fonte no código, todos os caminhos de arquivo existentes e todos os pares `[hh:mm] Nome` presentes na transcrição.
+6. **Verificação final.** Com o pacote pronto, passei para a IA os critérios de aceite de cada documento, um por vez, e pedi um checklist com a evidência de cada item, conferida contra a transcrição e o código. PRD, RFC, ADRs, tracker e este README passaram sem correção. Os ajustes foram:
+   - **FDD:** na seção "Contratos públicos", só o `POST /webhooks` tinha exemplo completo de request e response. Foram acrescentados a resposta do `PATCH /webhooks/:id` e exemplos de requisição para listagem, rotação de secret, histórico de entregas e replay da DLQ, totalizando 6 endpoints completos.
+   - **`docs/adrs/README.md`:** o arquivo, herdado do repositório base, indicava o padrão de nome `0001-titulo-da-decisao.md`, que contradizia o formato `ADR-NNN-titulo-em-kebab-case.md` usado nos ADRs. O padrão foi corrigido.
+   - **README:** os prompts do FDD e do PRD, que tinham ficado de fora, foram incluídos na seção "Prompts customizados".
 
 ## Como navegar a entrega
 
