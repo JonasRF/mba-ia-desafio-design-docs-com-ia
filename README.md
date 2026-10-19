@@ -79,7 +79,49 @@ para os ADRs correspondentes). O RFC não deve duplicar o detalhamento do FDD. E
 propomos e por quê"; o "como construir" em detalhe fica no FDD que será implementado depois.
 ```
 
-**3. Tracker como verificação contra alucinações.** O prompt define o formato obrigatório da tabela e as metas de cobertura, que depois foram conferidas por script:
+**3. FDD sobre as decisões formalizadas.** O prompt lista as seções mínimas do FDD e reforça a seção obrigatória "Integração com o sistema existente", exigindo caminhos de arquivo reais do código base:
+
+```text
+Com as decisões formalizadas e a proposta consolidada, o desenho técnico se constrói em cima
+delas. Lembre da seção obrigatória "Integração com o sistema existente". Inclua no arquivo
+docs/FDD.md detalhando o "como implementar" da feature. O FDD é o documento mais técnico e precisa
+estar acionável o suficiente para um desenvolvedor pegar e começar a codar. Deve ter no mínimo:
+Contexto e motivação técnica, Objetivos técnicos, Escopo e exclusões, Fluxos detalhados (criação
+do evento na outbox, processamento pelo worker, retry, DLQ), Contratos públicos (endpoints HTTP
+com payloads de exemplo, headers, status codes, semântica), Matriz de erros previstos com códigos
+no padrão WEBHOOK_*, Estratégias de resiliência (timeouts, retries, backoff, fallback),
+Observabilidade (métricas, logs, tracing), Dependências e compatibilidade, Critérios de aceite
+técnicos, Riscos e mitigação. Seção obrigatória adicional: "Integração com o sistema existente".
+Esta seção deve nomear pelo menos 4 caminhos de arquivo reais do código base e descrever como o
+módulo de webhooks vai se integrar com cada um (por exemplo, como o método changeStatus será
+estendido, como as classes de erro existentes serão reutilizadas).
+```
+
+**4. Revisão do FDD.** Exemplo de prompt curto de correção, escrito depois da leitura do documento gerado:
+
+```text
+Verifiquei também um excesso de referências com horário e nome da reunião. Revise o documento e
+retire o excesso dessas referências. Aplique também um cabeçalho com as informações do documento,
+status.
+```
+
+**5. PRD como consolidação.** O prompt parte do RFC, do FDD e dos ADRs já escritos e traz os critérios de aceite do PRD (requisitos funcionais, meta quantitativa, riscos e itens fora de escopo):
+
+```text
+Como o PRD é mais alto nível, com RFC, FDD e ADRs em mãos vira praticamente uma consolidação. No
+arquivo docs/PRD.md faça a cobertura da feature de Sistema de Webhooks de Notificação de Pedidos.
+O PRD deve ter no mínimo as seguintes seções: Resumo e contexto da feature, Problema e motivação,
+Público-alvo e cenários de uso, Objetivos e métricas de sucesso, Escopo (incluso e fora de
+escopo), Requisitos funcionais, Requisitos não funcionais, Decisões e trade-offs principais,
+Dependências, Riscos e mitigação, Critérios de aceitação e Estratégia de testes e validação. A
+seção "Fora de escopo" deve listar explicitamente pelo menos 2 itens descartados ou adiados
+durante a reunião (TRANSCRICAO.md). Aplique os seguintes critérios: identifica no mínimo 8
+requisitos funcionais discutidos na reunião, inclui pelo menos 1 objetivo com métrica e meta
+quantitativa e, na seção "Riscos", inclui pelo menos 2 riscos com probabilidade, impacto e
+mitigação.
+```
+
+**6. Tracker como verificação contra alucinações.** O prompt define o formato obrigatório da tabela e as metas de cobertura, que depois foram conferidas por script:
 
 ```text
 No arquivo docs/TRACKER.md crie uma tabela markdown que mapeia cada item registrado nos documentos
@@ -96,14 +138,6 @@ Fonte: TRANSCRICAO ou CODIGO, Localização: para TRANSCRICAO, timestamp + nome 
 identificáveis nos seus documentos devem ter linha correspondente no tracker. Pelo menos 70% das
 linhas têm Fonte = TRANSCRICAO com timestamp válido no formato [hh:mm] Nome. Pelo menos 5 linhas
 têm Fonte = CODIGO com caminho de arquivo real.
-```
-
-**4. Revisão do FDD.** Exemplo de prompt curto de correção, escrito depois da leitura do documento gerado:
-
-```text
-Verifiquei também um excesso de referências com horário e nome da reunião. Revise o documento e
-retire o excesso dessas referências. Aplique também um cabeçalho com as informações do documento,
-status.
 ```
 
 ## Iterações e ajustes
