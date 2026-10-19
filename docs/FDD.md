@@ -210,6 +210,11 @@ Qualquer role autenticada pode gerenciar webhooks de qualquer cliente nesta fase
 
 ### 6.2 `GET /webhooks?customerId=&page=&pageSize=` — listar
 
+```http
+GET /api/v1/webhooks?customerId=5b1f0c9e-6a4d-4f0e-9d53-2f1c7a9b8e10&page=1&pageSize=20
+Authorization: Bearer <JWT>
+```
+
 `200 OK`, no formato de `paginated()` (`src/shared/http/response.ts`):
 
 ```json
@@ -239,7 +244,21 @@ Aceita qualquer combinação de `url`, `events` e `active`:
 { "events": ["PAID", "SHIPPED", "DELIVERED"], "active": false }
 ```
 
-`200 OK` com o recurso atualizado, sem `secret`. Erros: `400 VALIDATION_ERROR`, `400 WEBHOOK_INVALID_URL`, `401 UNAUTHORIZED`, `404 WEBHOOK_NOT_FOUND`.
+`200 OK` com o recurso atualizado, sem `secret`:
+
+```json
+{
+  "id": "0c6a3e52-8a55-4a37-b0a4-4f7f0f3c2b91",
+  "customerId": "5b1f0c9e-6a4d-4f0e-9d53-2f1c7a9b8e10",
+  "url": "https://erp.cliente.example/hooks/pedidos",
+  "events": ["PAID", "SHIPPED", "DELIVERED"],
+  "active": false,
+  "createdAt": "2026-10-06T14:02:11.000Z",
+  "updatedAt": "2026-10-06T14:20:47.000Z"
+}
+```
+
+Erros: `400 VALIDATION_ERROR`, `400 WEBHOOK_INVALID_URL`, `401 UNAUTHORIZED`, `404 WEBHOOK_NOT_FOUND`.
 
 A mudança vale para eventos gerados a partir de então. Eventos já na outbox de um endpoint desativado vão para a DLQ (seção 5.2).
 
@@ -249,7 +268,14 @@ A mudança vale para eventos gerados a partir de então. Eventos já na outbox d
 
 ### 6.5 `POST /webhooks/:id/rotate-secret` — rotacionar secret
 
-Sem body. `200 OK`:
+Sem body:
+
+```http
+POST /api/v1/webhooks/0c6a3e52-8a55-4a37-b0a4-4f7f0f3c2b91/rotate-secret
+Authorization: Bearer <JWT>
+```
+
+`200 OK`:
 
 ```json
 {
@@ -263,7 +289,14 @@ A secret anterior segue válida por 24 horas (`[09:21] Sofia`): nesse período c
 
 ### 6.6 `GET /webhooks/:id/deliveries?page=&pageSize=` — histórico de entregas
 
-Mais recentes primeiro; `pageSize` máximo de 100 (`[09:34] Marcos`). `200 OK`:
+Mais recentes primeiro; `pageSize` máximo de 100 (`[09:34] Marcos`).
+
+```http
+GET /api/v1/webhooks/0c6a3e52-8a55-4a37-b0a4-4f7f0f3c2b91/deliveries?page=1&pageSize=20
+Authorization: Bearer <JWT>
+```
+
+`200 OK`:
 
 ```json
 {
@@ -289,7 +322,14 @@ O `payload` vem completo (abreviado acima). Erros: `400 VALIDATION_ERROR`, `401 
 
 ### 6.7 `POST /admin/webhooks/dead-letter/:id/replay` — reprocessar
 
-Exige role `ADMIN` via `requireRole('ADMIN')` (`[09:36] Larissa`). Sem body. `202 Accepted`:
+Exige role `ADMIN` via `requireRole('ADMIN')` (`[09:36] Larissa`). Sem body:
+
+```http
+POST /api/v1/admin/webhooks/dead-letter/9d2e7f10-3b4a-4c5d-8e6f-7a8b9c0d1e2f/replay
+Authorization: Bearer <JWT de usuário ADMIN>
+```
+
+`202 Accepted`:
 
 ```json
 {
