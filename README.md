@@ -36,108 +36,180 @@ Como organizei a interação com a IA:
 
 ## Prompts customizados
 
-Os prompts abaixo foram transcritos das sessões, com pequenas correções de digitação.
+Os prompts abaixo foram transcritos das sessões. Para facilitar a leitura, corrigi a digitação e reorganizei cada um em contexto, tarefa e critérios numerados, sem mudar o que foi pedido.
 
 **1. Exploração inicial e ADRs** (primeira sessão). Além de reproduzir os requisitos dos ADRs, o prompt alerta sobre o que foi descartado na reunião e define que as decisões secundárias ficam no FDD:
 
 ```text
+Contexto:
 Faça uma exploração inicial para entender estrutura, padrões e o que a feature precisa endereçar.
-Nesse projeto vou precisar que crie um pacote de documentação, entre eles: PRD, FDD, RFC, Tracker
-e os ADRs. Quero começar primeiro com os ADRs e a seguir irei passar as instruções. Produza entre
-5 e 8 ADRs em arquivos separados dentro de docs/adrs/, nomeados no formato
-ADR-NNN-titulo-em-kebab-case.md (ex: ADR-001-outbox-no-mysql.md). Cada ADR deve seguir o formato
-MADR (ou variante padrão) com no mínimo as seções: Status, Contexto, Decisão, Alternativas
-Consideradas (pelo menos 1 alternativa real discutida ou plausível), Consequências (positivas e
-negativas, com trade-off explícito). Pelo menos 1 ADR deve referenciar explicitamente arquivos,
-módulos ou padrões do código existente. O conjunto de ADRs deve cobrir, no mínimo, 5 das 6
-decisões principais discutidas na reunião: Padrão Outbox no MySQL, Política de retry com backoff
-e DLQ, Autenticação HMAC-SHA256 com secret por endpoint, Garantia at-least-once com X-Event-Id,
-Worker em processo separado em polling, Reuso dos padrões existentes do projeto. Decisões técnicas
-secundárias (formato de payload, timeouts, headers, entre outras) podem virar ADRs adicionais ou
-ficar apenas no FDD, mas neste caso prefiro que fique no FDD. A reunião está no arquivo
-TRANSCRICAO.md. Tenha cuidado com o que NÃO entra na documentação. A reunião descarta
-explicitamente algumas ideias. Se essas coisas aparecerem como requisito nos documentos criados,
-é sinal de que a IA não está sendo cuidadosa com o que estou pedindo.
+Nesse projeto vou precisar que crie um pacote de documentação: PRD, FDD, RFC, Tracker e os ADRs.
+Quero começar pelos ADRs; as instruções dos outros documentos virão depois. A reunião está no
+arquivo TRANSCRICAO.md.
+
+Tarefa:
+Produza entre 5 e 8 ADRs em arquivos separados dentro de docs/adrs/.
+
+Critérios:
+1. Nome dos arquivos no formato ADR-NNN-titulo-em-kebab-case.md (ex: ADR-001-outbox-no-mysql.md).
+2. Formato MADR (ou variante padrão) com, no mínimo, as seções:
+   2.1. Status
+   2.2. Contexto
+   2.3. Decisão
+   2.4. Alternativas Consideradas (pelo menos 1 alternativa real discutida ou plausível)
+   2.5. Consequências (positivas e negativas, com trade-off explícito)
+3. Pelo menos 1 ADR deve referenciar explicitamente arquivos, módulos ou padrões do código
+   existente.
+4. O conjunto deve cobrir, no mínimo, 5 das 6 decisões principais discutidas na reunião:
+   4.1. Padrão Outbox no MySQL
+   4.2. Política de retry com backoff e DLQ
+   4.3. Autenticação HMAC-SHA256 com secret por endpoint
+   4.4. Garantia at-least-once com X-Event-Id
+   4.5. Worker em processo separado em polling
+   4.6. Reuso dos padrões existentes do projeto
+5. Decisões técnicas secundárias (formato de payload, timeouts, headers, entre outras) podem virar
+   ADRs adicionais ou ficar apenas no FDD; neste caso, prefiro que fiquem no FDD.
+
+Atenção:
+Tenha cuidado com o que NÃO entra na documentação. A reunião descarta explicitamente algumas
+ideias. Se elas aparecerem como requisito nos documentos criados, é sinal de que a IA não está
+sendo cuidadosa com o que estou pedindo.
 ```
 
 **2. RFC consolidado sobre os ADRs.** O prompt amarra o RFC aos ADRs já escritos e delimita a fronteira com o FDD, para evitar detalhe de implementação duplicado:
 
 ```text
-Com os ADRs feitos agora, consolide a proposta técnica em cima das decisões. As alternativas
-descartadas e as questões em aberto da reunião têm lugar natural aqui. Referencie os ADRs já
-escritos. Utilize o arquivo docs/RFC.md com a proposta técnica da solução, no formato de um
-documento submetido à equipe para revisão. O RFC opera em nível de arquitetura: apresenta a
-abordagem escolhida, as alternativas que foram colocadas na mesa e as questões deixadas em
-aberto. É um documento conciso (2 a 4 páginas); o detalhamento de implementação vai ficar no FDD
-que será criado depois. Deve incluir no mínimo: Metadados (autor, status, data, revisores); use os
-participantes da reunião como revisores, Resumo executivo (TL;DR) da proposta, Contexto e
-problema, Proposta técnica (visão geral da solução, sem descer ao detalhe de implementação do
-FDD), Alternativas consideradas (pelo menos 2 alternativas reais discutidas e descartadas na
-reunião, cada uma com o trade-off que levou ao descarte), Questões em aberto (pelo menos 2 pontos
-levantados na reunião e não decididos ou adiados), Impacto e riscos, Decisões relacionadas (links
-para os ADRs correspondentes). O RFC não deve duplicar o detalhamento do FDD. Ele responde "o que
-propomos e por quê"; o "como construir" em detalhe fica no FDD que será implementado depois.
+Contexto:
+Com os ADRs feitos, consolide a proposta técnica em cima das decisões. As alternativas
+descartadas e as questões em aberto da reunião têm lugar natural aqui. O RFC opera em nível de
+arquitetura: apresenta a abordagem escolhida, as alternativas que foram colocadas na mesa e as
+questões deixadas em aberto.
+
+Tarefa:
+Escreva no arquivo docs/RFC.md a proposta técnica da solução, no formato de um documento
+submetido à equipe para revisão, referenciando os ADRs já escritos.
+
+Seções obrigatórias:
+1. Metadados (autor, status, data, revisores); use os participantes da reunião como revisores.
+2. Resumo executivo (TL;DR) da proposta.
+3. Contexto e problema.
+4. Proposta técnica (visão geral da solução, sem descer ao detalhe de implementação do FDD).
+5. Alternativas consideradas (pelo menos 2 alternativas reais discutidas e descartadas na
+   reunião, cada uma com o trade-off que levou ao descarte).
+6. Questões em aberto (pelo menos 2 pontos levantados na reunião e não decididos ou adiados).
+7. Impacto e riscos.
+8. Decisões relacionadas (links para os ADRs correspondentes).
+
+Critérios:
+1. Documento conciso, de 2 a 4 páginas.
+2. Não duplicar o detalhamento do FDD: o RFC responde "o que propomos e por quê"; o "como
+   construir" em detalhe fica no FDD, que será criado depois.
 ```
 
 **3. FDD sobre as decisões formalizadas.** O prompt lista as seções mínimas do FDD e reforça a seção obrigatória "Integração com o sistema existente", exigindo caminhos de arquivo reais do código base:
 
 ```text
+Contexto:
 Com as decisões formalizadas e a proposta consolidada, o desenho técnico se constrói em cima
-delas. Lembre da seção obrigatória "Integração com o sistema existente". Inclua no arquivo
-docs/FDD.md detalhando o "como implementar" da feature. O FDD é o documento mais técnico e precisa
-estar acionável o suficiente para um desenvolvedor pegar e começar a codar. Deve ter no mínimo:
-Contexto e motivação técnica, Objetivos técnicos, Escopo e exclusões, Fluxos detalhados (criação
-do evento na outbox, processamento pelo worker, retry, DLQ), Contratos públicos (endpoints HTTP
-com payloads de exemplo, headers, status codes, semântica), Matriz de erros previstos com códigos
-no padrão WEBHOOK_*, Estratégias de resiliência (timeouts, retries, backoff, fallback),
-Observabilidade (métricas, logs, tracing), Dependências e compatibilidade, Critérios de aceite
-técnicos, Riscos e mitigação. Seção obrigatória adicional: "Integração com o sistema existente".
-Esta seção deve nomear pelo menos 4 caminhos de arquivo reais do código base e descrever como o
-módulo de webhooks vai se integrar com cada um (por exemplo, como o método changeStatus será
-estendido, como as classes de erro existentes serão reutilizadas).
+delas. O FDD é o documento mais técnico e precisa estar acionável o suficiente para um
+desenvolvedor pegar e começar a codar.
+
+Tarefa:
+Escreva no arquivo docs/FDD.md o "como implementar" da feature.
+
+Seções obrigatórias:
+1. Contexto e motivação técnica.
+2. Objetivos técnicos.
+3. Escopo e exclusões.
+4. Fluxos detalhados (criação do evento na outbox, processamento pelo worker, retry, DLQ).
+5. Contratos públicos (endpoints HTTP com payloads de exemplo, headers, status codes, semântica).
+6. Matriz de erros previstos, com códigos no padrão WEBHOOK_*.
+7. Estratégias de resiliência (timeouts, retries, backoff, fallback).
+8. Observabilidade (métricas, logs, tracing).
+9. Dependências e compatibilidade.
+10. Critérios de aceite técnicos.
+11. Riscos e mitigação.
+12. Integração com o sistema existente (seção obrigatória adicional).
+
+Critérios da seção "Integração com o sistema existente":
+1. Nomear pelo menos 4 caminhos de arquivo reais do código base.
+2. Descrever como o módulo de webhooks vai se integrar com cada um (por exemplo, como o método
+   changeStatus será estendido, como as classes de erro existentes serão reutilizadas).
 ```
 
 **4. Revisão do FDD.** Exemplo de prompt curto de correção, escrito depois da leitura do documento gerado:
 
 ```text
-Verifiquei também um excesso de referências com horário e nome da reunião. Revise o documento e
-retire o excesso dessas referências. Aplique também um cabeçalho com as informações do documento,
-status.
+Contexto:
+Verifiquei um excesso de referências com horário e nome da reunião no FDD.
+
+Tarefa:
+1. Revise o documento e retire o excesso dessas referências.
+2. Aplique um cabeçalho com as informações do documento, incluindo o status.
 ```
 
 **5. PRD como consolidação.** O prompt parte do RFC, do FDD e dos ADRs já escritos e traz os critérios de aceite do PRD (requisitos funcionais, meta quantitativa, riscos e itens fora de escopo):
 
 ```text
-Como o PRD é mais alto nível, com RFC, FDD e ADRs em mãos vira praticamente uma consolidação. No
-arquivo docs/PRD.md faça a cobertura da feature de Sistema de Webhooks de Notificação de Pedidos.
-O PRD deve ter no mínimo as seguintes seções: Resumo e contexto da feature, Problema e motivação,
-Público-alvo e cenários de uso, Objetivos e métricas de sucesso, Escopo (incluso e fora de
-escopo), Requisitos funcionais, Requisitos não funcionais, Decisões e trade-offs principais,
-Dependências, Riscos e mitigação, Critérios de aceitação e Estratégia de testes e validação. A
-seção "Fora de escopo" deve listar explicitamente pelo menos 2 itens descartados ou adiados
-durante a reunião (TRANSCRICAO.md). Aplique os seguintes critérios: identifica no mínimo 8
-requisitos funcionais discutidos na reunião, inclui pelo menos 1 objetivo com métrica e meta
-quantitativa e, na seção "Riscos", inclui pelo menos 2 riscos com probabilidade, impacto e
-mitigação.
+Contexto:
+O PRD é o documento mais alto nível. Com RFC, FDD e ADRs em mãos, ele vira praticamente uma
+consolidação.
+
+Tarefa:
+Escreva no arquivo docs/PRD.md a cobertura da feature Sistema de Webhooks de Notificação de
+Pedidos.
+
+Seções obrigatórias:
+1. Resumo e contexto da feature.
+2. Problema e motivação.
+3. Público-alvo e cenários de uso.
+4. Objetivos e métricas de sucesso.
+5. Escopo (incluso e fora de escopo).
+6. Requisitos funcionais.
+7. Requisitos não funcionais.
+8. Decisões e trade-offs principais.
+9. Dependências.
+10. Riscos e mitigação.
+11. Critérios de aceitação.
+12. Estratégia de testes e validação.
+
+Critérios:
+1. Identificar no mínimo 8 requisitos funcionais discutidos na reunião.
+2. Incluir pelo menos 1 objetivo com métrica e meta quantitativa.
+3. Na seção "Fora de escopo", listar explicitamente pelo menos 2 itens descartados ou adiados
+   durante a reunião (TRANSCRICAO.md).
+4. Na seção "Riscos", incluir pelo menos 2 riscos com probabilidade, impacto e mitigação.
 ```
 
 **6. Tracker como verificação contra alucinações.** O prompt define o formato obrigatório da tabela e as metas de cobertura, que depois foram conferidas por script:
 
 ```text
-No arquivo docs/TRACKER.md crie uma tabela markdown que mapeia cada item registrado nos documentos
-à origem na transcrição ou no código. O tracker funciona como uma referência cruzada: permite que
-qualquer leitor entenda de onde veio cada decisão, requisito ou restrição, e garante que a
-documentação está alinhada com o que foi efetivamente discutido e com o que existe no código.
+Contexto:
+O tracker funciona como uma referência cruzada: permite que qualquer leitor entenda de onde veio
+cada decisão, requisito ou restrição, e garante que a documentação está alinhada com o que foi
+efetivamente discutido e com o que existe no código.
+
+Tarefa:
+No arquivo docs/TRACKER.md, crie uma tabela markdown que mapeia cada item registrado nos
+documentos à sua origem na transcrição ou no código.
+
 Formato obrigatório da tabela:
 ID | Documento | Tipo | Conteúdo (resumo) | Fonte | Localização
-Onde: ID: identificador único do item (ex: PRD-FR-01, RFC-ALT-02, FDD-CONTRATO-03, ADR-002),
-Documento: arquivo onde o item aparece, Tipo: Requisito Funcional, Requisito Não Funcional,
-Decisão, Restrição, Trade-off, entre outros, Conteúdo (resumo): descrição de uma linha do item,
-Fonte: TRANSCRICAO ou CODIGO, Localização: para TRANSCRICAO, timestamp + nome do falante
-(ex: [09:17] Diego). Para CODIGO, caminho do arquivo. Cobertura mínima: pelo menos 80% dos itens
-identificáveis nos seus documentos devem ter linha correspondente no tracker. Pelo menos 70% das
-linhas têm Fonte = TRANSCRICAO com timestamp válido no formato [hh:mm] Nome. Pelo menos 5 linhas
-têm Fonte = CODIGO com caminho de arquivo real.
+
+Onde:
+1. ID: identificador único do item (ex: PRD-FR-01, RFC-ALT-02, FDD-CONTRATO-03, ADR-002).
+2. Documento: arquivo onde o item aparece.
+3. Tipo: Requisito Funcional, Requisito Não Funcional, Decisão, Restrição, Trade-off, entre
+   outros.
+4. Conteúdo (resumo): descrição de uma linha do item.
+5. Fonte: TRANSCRICAO ou CODIGO.
+6. Localização: para TRANSCRICAO, timestamp + nome do falante (ex: [09:17] Diego); para CODIGO,
+   caminho do arquivo.
+
+Critérios de cobertura:
+1. Pelo menos 80% dos itens identificáveis nos documentos têm linha correspondente no tracker.
+2. Pelo menos 70% das linhas têm Fonte = TRANSCRICAO com timestamp válido no formato [hh:mm] Nome.
+3. Pelo menos 5 linhas têm Fonte = CODIGO com caminho de arquivo real.
 ```
 
 ## Iterações e ajustes
